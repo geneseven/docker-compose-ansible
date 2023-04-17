@@ -1,0 +1,55 @@
+# docker run -d --name salt -p 6054:6054 -v /opt/saltstack:/opt/saltstack salt:1.0.0
+#
+version: '3.6'
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.4.0
+    volumes:
+      - '$HOME/srv/ca-certificates:/etc/ssl/certs'
+      - '$HOME/srv/etcd-data:/etcd-data'
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+      - "4001:4001"
+    expose:
+      - 2379
+      - 2380
+      - 4001
+    environment:
+      - ETCDCTL_API=3
+    command:
+      - /usr/local/bin/etcd
+      - --data-dir=/etcd-data
+      - --name=etcd0
+      - --initial-advertise-peer-urls=http://0.0.0.0:2380
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://0.0.0.0:2379,http://0.0.0.0:4001
+      - --listen-client-urls=http://0.0.0.0:2379,http://0.0.0.0:4001
+      - --initial-cluster=etcd0=http://0.0.0.0:2380
+      - --initial-cluster-state=new
+      - --initial-cluster-token=docker-etcd
+      - --auto-compaction-retention=1
+      - --auto-compaction-mode=periodic
+  ansible:
+    image: ansible:v7
+    volumes:
+      - '$HOME/srv/ansible:/srv/ansible'
+      - '$HOME/srv/pillar:/srv/pillar'
+      - '$HOME/srv/pymodule:/srv/pymodule'
+    command:
+      - tail
+      - -F
+      - /var/log/alternatives.log 
+  api-server:
+    image: docker.io/recordsansible/ara-api:latest
+    volumes:
+      - '$HOME/srv/ansible-ara:/opt/ara'
+    ports:
+      - 8000:8000
+  db:
+    image: mariadb
+    volumes:
+      - '$HOME/srv/mysql:/var/lib/mysql'
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: mysqladmin
